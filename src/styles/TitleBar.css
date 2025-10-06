@@ -1,0 +1,130 @@
+  /* Titlebar container */
+  .titlebar {
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0; /* tray at extreme left */
+    background: #f7f7f8;
+    color: #000; /* normal black text */
+   -webkit-user-select: none;
+    -webkit-app-region: drag;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  /* Left area (tray button) */
+  .titlebar-left {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    -webkit-app-region: no-drag; /* clickable */
+  }
+
+  /* Tray button at very left */
+  .control-btn.tray-btn {
+    width: 44px;
+    height: 40px;  
+    border-radius: 0; /* square corners */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: #333; /* light black for icon */
+    transition: background 0.15s ease;
+  }
+
+  /* Tray icon */
+  .tray-icon {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor; /* takes color from parent */
+    display: block;
+  }
+
+  /* Full background hover for tray */
+  .control-btn.tray-btn:hover {
+    background: rgba(0,0,0,0.08); /* light background hover */
+  }
+  .control-btn.tray-btn:active {
+    background: rgba(0,0,0,0.15);
+  }
+
+  /* Center title - adjust slightly right */
+  .titlebar-center {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    position: relative;
+    left: 40px; /* shift slightly right to balance tray button */
+  }
+
+  .title-text {
+    font-size: 15px;
+    font-weight: 500;
+    color: #222; /* normal black text */
+    letter-spacing: 0.2px;
+    pointer-events: none;
+  }
+
+  /* Right controls */
+  .window-controls {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    -webkit-app-region: no-drag;
+  }
+
+  /* Window buttons */
+  .control-btn {
+    width: 44px;
+    height: 40px; /* match tray */
+    border: none;
+    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #333; /* light black for SVGs */
+    border-radius: 0;
+    transition: background 0.15s ease;
+  }
+
+  .control-btn svg {
+    display: block;
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+    fill: none; /* ensures only stroke shows */
+  }
+
+  /* Hover effect for all buttons (full background) */
+  .control-btn:hover {
+    background: rgba(0,0,0,0.08);
+  }
+  .control-btn:active {
+    background: rgba(0,0,0,0.15);
+  }
+
+  /* Close button special */
+  .control-btn.close-btn:hover {
+    background: #e81123; 
+    color: #fff;
+  }
+  .control-btn.close-btn:active {
+    background: #c50f1f;
+    color: #fff;
+  }
+
+  body {
+    margin-top: 40px; /* push content below titlebar */
+  }

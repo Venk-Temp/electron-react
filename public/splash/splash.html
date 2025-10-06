@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loading...</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #ffffff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #splash-logo {
+      max-width: 300px;
+      max-height: 300px;
+      object-fit: contain;
+      animation: fadeIn 0.6s ease-in;
+    }
+
+    @keyframes fadeIn {
+      from { 
+        opacity: 0; 
+        transform: scale(0.95); 
+      }
+      to { 
+        opacity: 1; 
+        transform: scale(1); 
+      }
+    }
+  </style>
+</head>
+<body>
+  <img id="splash-logo" src="" alt="Logo">
+
+  <script>
+    try {
+      const { ipcRenderer } = require('electron');
+      const logoPath = ipcRenderer.sendSync('get-splash-logo-path');
+      
+      const logoImg = document.getElementById('splash-logo');
+      
+      if (logoPath) {
+        logoImg.src = logoPath;
+        logoImg.onerror = () => console.error('Failed to load logo');
+        logoImg.onload = () => console.log('Logo loaded successfully');
+      } else {
+        console.error('No logo path provided');
+      }
+    } catch (error) {
+      console.error('Splash screen error:', error);
+    }
+  </script>
+</body>
+</html>

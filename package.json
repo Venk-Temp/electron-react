@@ -1,0 +1,139 @@
+{
+  "name": "amdital",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Amdital Desktop Application",
+  "author": "Amdital Team",
+  "main": "electron/electron-main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron-prod": "npm run build && cross-env NODE_ENV=production electron .",
+    "dist:win": "npm run build && electron-builder --win --x64",
+    "dist:mac": "npm run build && electron-builder --mac --x64 --arm64",
+    "dist:mac:x64": "npm run build && electron-builder --mac --x64",
+    "dist:mac:arm64": "npm run build && electron-builder --mac --arm64",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "dist:all": "npm run build && electron-builder -mwl",
+    "dist:mac:unsigned": "CSC_IDENTITY_AUTO_DISCOVERY=false npm run dist:mac && cp -R release/Amdital-1.0.0-mac-universal/Amdital.app /Applications/ && sudo xattr -r -d com.apple.quarantine /Applications/Amdital.app"
+  },
+  "dependencies": {
+    "fs-extra": "^11.3.2",
+    "lucide-react": "^0.544.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.7.0",
+    "concurrently": "^9.2.1",
+    "cross-env": "^7.0.3",
+    "electron": "^38.1.2",
+    "electron-builder": "^24.13.3",
+    "vite": "^7.0.4",
+    "wait-on": "^9.0.1"
+  },
+  "build": {
+    "appId": "com.amdital.desktop",
+    "productName": "Amdital",
+    "asar": true,
+    "asarUnpack": [
+      "electron/preload.cjs"
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "public"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/electron-main.js",
+      "electron/preload.cjs",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "public/icons",
+        "to": "assets/icons",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "public/splash",
+        "to": "assets/splash",
+        "filter": ["**/*"]
+      }
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "category": "public.app-category.productivity",
+      "icon": "public/icons/logo.icns",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
+    },
+    "dmg": {
+      "icon": "public/icons/logo.icns",
+      "iconSize": 100,
+      "contents": [
+        {
+          "x": 150,
+          "y": 200
+        },
+        {
+          "x": 450,
+          "y": 200,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ],
+      "window": {
+        "width": 600,
+        "height": 450
+      }
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "public/icons/logo.ico",
+      "requestedExecutionLevel": "asInvoker",
+      "artifactName": "${productName}-${version}-win-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Amdital",
+      "uninstallDisplayName": "Amdital",
+      "installerIcon": "public/icons/logo.ico",
+      "uninstallerIcon": "public/icons/logo.ico",
+      "installerHeaderIcon": "public/icons/logo.ico"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "public/icons/logo.png",
+      "category": "Office"
+    }
+  }
+}
