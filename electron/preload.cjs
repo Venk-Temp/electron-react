@@ -37,6 +37,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Get capture status
     getStatus: () => ipcRenderer?.invoke('get-screenshot-status')
   },
+
+  
+
   // Owner cookie token fallback
   ownerCookies: {
     getTokenFromCookies: (domain, names) => ipcRenderer?.invoke('get-owner-token-from-cookies', { domain, names }),
@@ -49,3 +52,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     replay: (url, body, headers, initialToken) => ipcRenderer?.invoke('replay-owner-graphql', { url, body, headers, initialToken })
   }
 });
+
+
+
+  

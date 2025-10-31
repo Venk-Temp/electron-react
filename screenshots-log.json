@@ -1,14 +1,113 @@
 {
   "screenshots": [
     {
-      "id": 1761225828322,
-      "filename": "screenshot_1761225828303.png",
-      "timestamp": "2025-10-23T13:23:48.309Z",
+      "id": 1761907627687,
+      "filename": "screenshot_1761907627684.png",
+      "timestamp": "2025-10-31T10:47:07.686Z",
       "employee_id": 855,
       "employee_name": "tomandjerrytoxic@gmail.com",
       "company_id": "",
-      "file_path": "C:\\Users\\venka\\OneDrive\\Desktop\\Digiwork\\Demo\\Amdital-POC\\screenshots\\screenshot_1761225828303.png",
-      "size_bytes": 208498,
+      "file_path": "C:\\Users\\venka\\OneDrive\\Desktop\\Digiwork\\Demo\\Amdital-POC\\screenshots\\screenshot_1761907627684.png",
+      "size_bytes": 211090,
+      "uploaded": false
+    },
+    {
+      "id": 1761907567634,
+      "filename": "screenshot_1761907567631.png",
+      "timestamp": "2025-10-31T10:46:07.632Z",
+      "employee_id": 855,
+      "employee_name": "tomandjerrytoxic@gmail.com",
+      "company_id": "",
+      "file_path": "C:\\Users\\venka\\OneDrive\\Desktop\\Digiwork\\Demo\\Amdital-POC\\screenshots\\screenshot_1761907567631.png",
+      "size_bytes": 169778,
+      "uploaded": false
+    },
+    {
+      "id": 1761907513423,
+      "filename": "screenshot_1761907513402.png",
+      "timestamp": "2025-10-31T10:45:13.404Z",
+      "employee_id": 855,
+      "employee_name": "tomandjerrytoxic@gmail.com",
+      "company_id": "",
+      "file_path": "C:\\Users\\venka\\OneDrive\\Desktop\\Digiwork\\Demo\\Amdital-POC\\screenshots\\screenshot_1761907513402.png",
+      "size_bytes": 246134,
+      "uploaded": false
+    },
+    {
+      "id": 1761824435095,
+      "filename": "screenshot_1761824435086.png",
+      "timestamp": "2025-10-30T11:40:35.089Z",
+      "employee_id": 855,
+      "employee_name": "tomandjerrytoxic@gmail.com",
+      "company_id": "",
+      "file_path": "C:\\Users\\venka\\OneDrive\\Desktop\\Digiwork\\Demo\\Amdital-POC\\screenshots\\screenshot_1761824435086.png",
+      "size_bytes": 254055,
+      "uploaded": false
+    },
+    {
+      "id": 1761824374722,
+      "filename": "screenshot_1761824374718.png",
+      "timestamp": "2025-10-30T11:39:34.720Z",
+      "employee_id": 855,
+      "employee_name": "tomandjerrytoxic@gmail.com",
+      "company_id": "",
+      "file_path": "C:\\Users\\venka\\OneDrive\\Desktop\\Digiwork\\Demo\\Amdital-POC\\screenshots\\screenshot_1761824374718.png",
+      "size_bytes": 231690,
+      "uploaded": false
+    },
+    {
+      "id": 1761824319892,
+      "filename": "screenshot_1761824319888.png",
+      "timestamp": "2025-10-30T11:38:39.891Z",
+      "employee_id": 855,
+      "employee_name": "tomandjerrytoxic@gmail.com",
+      "company_id": "",
+      "file_path": "C:\\Users\\venka\\OneDrive\\Desktop\\Digiwork\\Demo\\Amdital-POC\\screenshots\\screenshot_1761824319888.png",
+      "size_bytes": 894709,
+      "uploaded": false
+    },
+    {
+      "id": 1761824294192,
+      "filename": "screenshot_1761824294163.png",
+      "timestamp": "2025-10-30T11:38:14.174Z",
+      "employee_id": "UNKNOWN",
+      "employee_name": "Unknown User",
+      "company_id": "",
+      "file_path": "C:\\Users\\venka\\OneDrive\\Desktop\\Digiwork\\Demo\\Amdital-POC\\screenshots\\screenshot_1761824294163.png",
+      "size_bytes": 240348,
+      "uploaded": false
+    },
+    {
+      "id": 1761823100772,
+      "filename": "screenshot_1761823100766.png",
+      "timestamp": "2025-10-30T11:18:20.768Z",
+      "employee_id": 855,
+      "employee_name": "tomandjerrytoxic@gmail.com",
+      "company_id": "",
+      "file_path": "C:\\Users\\venka\\OneDrive\\Desktop\\Digiwork\\Demo\\Amdital-POC\\screenshots\\screenshot_1761823100766.png",
+      "size_bytes": 208235,
+      "uploaded": false
+    },
+    {
+      "id": 1761822911858,
+      "filename": "screenshot_1761822911855.png",
+      "timestamp": "2025-10-30T11:15:11.856Z",
+      "employee_id": 855,
+      "employee_name": "tomandjerrytoxic@gmail.com",
+      "company_id": "",
+      "file_path": "C:\\Users\\venka\\OneDrive\\Desktop\\Digiwork\\Demo\\Amdital-POC\\screenshots\\screenshot_1761822911855.png",
+      "size_bytes": 219988,
+      "uploaded": false
+    },
+    {
+      "id": 1761822857140,
+      "filename": "screenshot_1761822857121.png",
+      "timestamp": "2025-10-30T11:14:17.124Z",
+      "employee_id": 855,
+      "employee_name": "tomandjerrytoxic@gmail.com",
+      "company_id": "",
+      "file_path": "C:\\Users\\venka\\OneDrive\\Desktop\\Digiwork\\Demo\\Amdital-POC\\screenshots\\screenshot_1761822857121.png",
+      "size_bytes": 376870,
       "uploaded": false
     }
   ]

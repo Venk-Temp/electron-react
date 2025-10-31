@@ -259,6 +259,9 @@ ipcMain.handle("stop-screenshot-capture", async () => {
   }
 });
 
+
+
+
 // NEW HANDLER 1: Set auth token
 ipcMain.handle("set-screenshot-token", async (event, tokenData) => {
   try {
@@ -824,7 +827,13 @@ app.whenReady().then(() => {
   try {
     const ses = session.fromPartition('persist:main');
     if (ses && ses.webRequest) {
-      const urlFilters = { urls: ['*://*.api-amdital.dev.diginnovators.site/*', '*://*.amdital.dev.diginnovators.site/*'] };
+      const urlFilters = { urls: [
+        '*://*.api-amdital.dev.diginnovators.site/*',
+        '*://*.amdital.dev.diginnovators.site/*',
+        '*://*.amdital.com/*',
+        '*://*.api.amdital.com/*',
+        '*://app.amdital.com/*'
+      ] };
       ses.webRequest.onHeadersReceived(urlFilters, (details, callback) => {
         try {
           const headers = details.responseHeaders || {};

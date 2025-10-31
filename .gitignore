@@ -1,17 +1,39 @@
-# Node modules
+# Create this file: Amdital-POC/.gitignore
+
+# Dependencies
 node_modules/
+package-lock.json
 
 # Build outputs
 dist/
 release/
-*.log
+out/
 
-# OS-specific files
+# Electron specific
+screenshots/
+screenshots-log.json
+
+# Environment variables (keep .env.example, ignore actual .env)
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
 Thumbs.db
 
-# Windows build folders
-win-unpacked/
-*.exe
-*.msi
-*.zip
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Temporary files
+*.tmp
+*.temp

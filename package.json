@@ -1,11 +1,13 @@
 {
-  "name": "amdital-poc",
+  "name": "amdital-desktop",
   "private": true,
   "version": "1.0.0",
-  "description": "Amdital Desktop Application - Screenshot POC",
-  "author": "Amdital Team",
+  "description": "Amdital Desktop Application",
+  "author": "Amdital Team <support@amdital.com>",
+  "license": "MIT",
   "main": "electron/electron-main.js",
   "type": "module",
+  "homepage": "https://amdital.com",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -16,11 +18,11 @@
     "dist:mac": "npm run build && electron-builder --mac --x64 --arm64",
     "dist:mac:x64": "npm run build && electron-builder --mac --x64",
     "dist:mac:arm64": "npm run build && electron-builder --mac --arm64",
-    "dist:mac:unsigned": "CSC_IDENTITY_AUTO_DISCOVERY=false npm run dist:mac",
+    "dist:mac:mas": "npm run build && electron-builder --mac mas",
     "dist:linux": "npm run build && electron-builder --linux",
     "dist:all": "npm run build && electron-builder -mwl",
-    "clean": "if exist dist rmdir /s /q dist && if exist release rmdir /s /q release",
-    "rebuild": "npm run clean && npm run build && npm run dist:all"
+    "clean": "rimraf dist release screenshots screenshots-log.json",
+    "rebuild": "npm run clean && npm install && npm run build && npm run dist:all"
   },
   "dependencies": {
     "form-data": "^4.0.1",
@@ -39,29 +41,39 @@
     "cross-env": "^7.0.3",
     "electron": "^38.1.2",
     "electron-builder": "^24.13.3",
+    "rimraf": "^6.0.1",
     "vite": "^7.0.4",
     "wait-on": "^9.0.1"
   },
   "build": {
-    "appId": "com.amdital.desktop.poc",
-    "productName": "Amdital-POC",
+    "appId": "com.amdital.desktop",
+    "productName": "Amdital",
+    "copyright": "Copyright © 2025 Amdital",
     "asar": true,
-    "asarUnpack": [
-      "electron/preload.cjs"
-    ],
     "directories": {
       "output": "release",
       "buildResources": "public"
     },
     "files": [
       "dist/**/*",
-      "electron/electron-main.js",
-      "electron/modules/**/*",
-      "electron/preload.cjs",
+      "electron/**/*",
       "package.json",
-      "screenshots/**/*",
-      "screenshots-log.json"
+      "!screenshots",
+      "!screenshots-log.json",
+      "!**/*.map",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!**/node_modules/*.d.ts",
+      "!**/node_modules/.bin",
+      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+      "!.editorconfig",
+      "!**/._*",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
+      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
+      "!**/{appveyor.yml,.travis.yml,circle.yml}",
+      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
     ],
+    "asarUnpack": ["node_modules/screenshot-desktop/**/*"],
     "extraResources": [
       {
         "from": "public/icons",
@@ -75,50 +87,50 @@
       }
     ],
     "mac": {
-      "target": [
-        {
-          "target": "dmg",
-          "arch": ["x64", "arm64"]
-        }
-      ],
+      "identity": "Diginnovators Solutions Private Limited (FTK7C4D3L2)",
+      "provisioningProfile": "build/Amdital_Provision_Profile.provisionprofile",
       "category": "public.app-category.productivity",
       "icon": "public/icons/logo.icns",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
-      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}",
+      "minimumSystemVersion": "10.13.0",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "mas",
+          "arch": ["x64", "arm64"]
+        }
+      ]
     },
     "dmg": {
       "icon": "public/icons/logo.icns",
       "iconSize": 100,
       "contents": [
-        {
-          "x": 150,
-          "y": 200
-        },
-        {
-          "x": 450,
-          "y": 200,
-          "type": "link",
-          "path": "/Applications"
-        }
+        { "x": 150, "y": 200 },
+        { "x": 450, "y": 200, "type": "link", "path": "/Applications" }
       ],
-      "window": {
-        "width": 600,
-        "height": 450
-      }
+      "window": { "width": 600, "height": 450 },
+      "title": "Install ${productName}"
     },
     "win": {
       "target": [
-        {
-          "target": "nsis",
-          "arch": ["x64"]
-        }
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
       ],
       "icon": "public/icons/logo.ico",
       "requestedExecutionLevel": "asInvoker",
-      "artifactName": "${productName}-${version}-win-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-win-${arch}.${ext}",
+      "publisherName": "Amdital"
     },
     "nsis": {
       "oneClick": false,
@@ -127,21 +139,64 @@
       "allowElevation": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Amdital-POC",
-      "uninstallDisplayName": "Amdital-POC",
+      "shortcutName": "Amdital",
+      "uninstallDisplayName": "Amdital",
       "installerIcon": "public/icons/logo.ico",
       "uninstallerIcon": "public/icons/logo.ico",
-      "installerHeaderIcon": "public/icons/logo.ico"
+      "installerHeaderIcon": "public/icons/logo.ico",
+      "license": "LICENSE"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.${ext}"
     },
     "linux": {
       "target": [
-        {
-          "target": "AppImage",
-          "arch": ["x64"]
-        }
+        { "target": "AppImage", "arch": ["x64"] },
+        { "target": "deb", "arch": ["x64"] },
+        { "target": "rpm", "arch": ["x64"] }
       ],
       "icon": "public/icons/logo.png",
-      "category": "Office"
+      "category": "Office",
+      "synopsis": "Amdital Desktop Application",
+      "description": "Employee monitoring and productivity tracking application",
+      "desktop": {
+        "Name": "Amdital",
+        "Comment": "Employee Monitoring Desktop App",
+        "Categories": "Office;Productivity;"
+      }
+    },
+    "appImage": {
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "deb": {
+      "artifactName": "${productName}_${version}_${arch}.${ext}",
+      "depends": [
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libdrm2",
+        "libgbm1",
+        "libxcb-dri3-0"
+      ]
+    },
+    "rpm": {
+      "artifactName": "${productName}-${version}.${arch}.${ext}",
+      "depends": [
+        "gtk3",
+        "libnotify",
+        "nss",
+        "libXScrnSaver",
+        "libXtst",
+        "xdg-utils",
+        "at-spi2-core",
+        "libdrm",
+        "mesa-libgbm",
+        "libxcb"
+      ]
     }
   }
 }

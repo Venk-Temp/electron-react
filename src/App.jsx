@@ -1,9 +1,15 @@
-// src/App.jsx - UPDATED FINAL VERSION (STABLE & CLEAN)
+// src/App.jsx - PRODUCTION READY (Fixed Credential Capture)
 import React, { useEffect, useRef, useState } from "react";
 import "./App.css";
 import TitleBar from "./components/TitleBar";
 
 const App = () => {
+  // Read from .env files - falls back to hardcoded URLs if not set
+  const LOGIN_URL = import.meta.env.VITE_LOGIN_URL || 
+    (import.meta?.env?.MODE === "production"
+      ? "https://app.amdital.com/login"
+      : "https://app-amdital.dev.diginnovators.site/login");
+  
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [webviewUrl, setWebviewUrl] = useState("");
   const [loading, setLoading] = useState(true);
@@ -19,16 +25,13 @@ const App = () => {
   const retryCountRef = useRef(0);
   const maxRetriesRef = useRef(15);
   const loginCheckIntervalRef = useRef(null);
-  const forcedOwnerNavRef = useRef(false);
-  const hiddenOwnerWebviewRef = useRef(null);
 
   // ============================================================================
   // INITIALIZE
   // ============================================================================
   useEffect(() => {
     const initializeApp = async () => {
-      console.log("🚀 Initializing app...");
-
+      console.log('🚀 Initializing app...');
       const savedAuth = localStorage.getItem("amdital_auth");
       if (savedAuth) {
         try {
@@ -41,9 +44,7 @@ const App = () => {
             ownerAuthToken.length >= 270;
 
           if (isValid) {
-            console.log(
-              "✅ Restored session (Token: " + ownerAuthToken.length + " chars)"
-            );
+            console.log('✅ Found valid saved auth');
             ownerAuthTokenRef.current = ownerAuthToken;
             userDataRef.current = userData;
 
@@ -60,18 +61,18 @@ const App = () => {
             await window.electronAPI?.screenshots?.start();
             isCapturingRef.current = true;
           } else {
-            console.log("⚠️ Invalid saved token, forcing fresh login");
+            console.log('⚠️ Invalid saved auth, clearing...');
             localStorage.removeItem("amdital_auth");
-            setWebviewUrl("https://app-amdital.dev.diginnovators.site/login");
+            setWebviewUrl(LOGIN_URL);
           }
         } catch (err) {
-          console.error("❌ Error restoring session:", err);
+          console.error('❌ Error reading saved auth:', err);
           localStorage.removeItem("amdital_auth");
-          setWebviewUrl("https://app-amdital.dev.diginnovators.site/login");
+          setWebviewUrl(LOGIN_URL);
         }
       } else {
-        console.log("ℹ️ No saved session, loading login page");
-        setWebviewUrl("https://app-amdital.dev.diginnovators.site/login");
+        console.log('ℹ️ No saved auth, showing login');
+        setWebviewUrl(LOGIN_URL);
       }
 
       setLoading(false);
@@ -89,6 +90,8 @@ const App = () => {
     if (!webview) return;
 
     const handleDomReady = async () => {
+      console.log('📄 Webview DOM ready, stage:', authStage);
+      
       if (authStage === "initial" && !isAuthenticated) {
         if (loginCheckIntervalRef.current)
           clearInterval(loginCheckIntervalRef.current);
@@ -105,15 +108,19 @@ const App = () => {
     };
 
     const handleNavigate = async (event) => {
+      console.log('🧭 Navigation:', event.url);
+      
       if (event.url.includes("/login") || event.url.includes("/logout")) {
         if (isAuthenticated) await handleLogout();
       }
 
       if (
         authStage === "redirecting" &&
-        event.url.includes(".api-amdital.dev.diginnovators.site")
+        (/.amdital\.dev\.diginnovators\.site/.test(event.url) || 
+         /\.amdital\.com/.test(event.url) || 
+         /api-amdital/.test(event.url))
       ) {
-        console.log("🔄 Reached owner subdomain, waiting for auto-login...");
+        console.log('✅ Owner domain detected, switching to owner_auth stage');
         setAuthStage("owner_auth");
       }
     };
@@ -141,38 +148,56 @@ const App = () => {
   }, [webviewUrl, loading, isAuthenticated, authStage]);
 
   // ============================================================================
-  // STAGE 1: Check for initial login
+  // STAGE 1: Check for initial login - ENHANCED CREDENTIAL CAPTURE
   // ============================================================================
   const checkForInitialLogin = async (webview) => {
     try {
       const code = `
         (function() {
           try {
+            // Try to get credentials from form inputs FIRST
+            let capturedCreds = null;
+            const forms = document.querySelectorAll('form');
+            
+            for (const form of forms) {
+              const emailInput = form.querySelector('input[type="email"], input[name="username"], input[name="email"], input[name="log"]');
+              const passwordInput = form.querySelector('input[type="password"], input[name="password"], input[name="pwd"]');
+              
+              if (emailInput && passwordInput) {
+                const emailValue = emailInput.value || emailInput.defaultValue || '';
+                const passwordValue = passwordInput.value || passwordInput.defaultValue || '';
+                
+                if (emailValue && passwordValue) {
+                  capturedCreds = {
+                    username: emailValue.trim(),
+                    password: passwordValue
+                  };
+                  console.log('✅ Credentials captured from form');
+                  break;
+                }
+              }
+            }
+            
+            // Now check for login token
             const loginDetails = localStorage.getItem('store_temp_login_details');
             if (!loginDetails) return null;
+            
             const loginData = JSON.parse(loginDetails);
             const authToken = loginData?.data?.login?.authToken;
             const user = loginData?.data?.login?.user;
-            const creds = loginData?.data?.login?.credentials || null;
+            
+            // Try to get credentials from localStorage if not captured from form
+            if (!capturedCreds && loginData?.data?.login?.credentials) {
+              capturedCreds = loginData.data.login.credentials;
+              console.log('✅ Credentials found in localStorage');
+            }
+            
             if (!authToken || !user) return null;
+            
             const sites = user.sites || [];
             if (sites.length === 0) return null;
-            const firstSite = sites[0];
             
-            // Also try to capture credentials from form if not in loginData
-            let capturedCreds = creds;
-            if (!capturedCreds) {
-              try {
-                const usernameInput = document.querySelector('input[type="email"], input[name="username"], input[name="email"]');
-                const passwordInput = document.querySelector('input[type="password"]');
-                if (usernameInput && passwordInput) {
-                  capturedCreds = {
-                    username: usernameInput.value || usernameInput.getAttribute('value') || '',
-                    password: passwordInput.value || passwordInput.getAttribute('value') || ''
-                  };
-                }
-              } catch {}
-            }
+            const firstSite = sites[0];
             
             return {
               authToken: authToken,
@@ -181,8 +206,11 @@ const App = () => {
                 userId: user.userId,
                 userName: user.name,
                 userEmail: user.email,
+                companyId: user.companyId,
+                userRole: user.userRole,
                 site: {
                   domain: firstSite.domain,
+                  blogId: firstSite.blogId,
                   url: firstSite.url,
                   app_url: firstSite.app_url,
                   old_app_url: firstSite.old_app_url,
@@ -192,25 +220,36 @@ const App = () => {
               },
               credentials: capturedCreds
             };
-          } catch (e) { return null; }
+          } catch (e) { 
+            console.error('Error in checkForInitialLogin:', e);
+            return null; 
+          }
         })();
       `;
 
       const loginData = await webview.executeJavaScript(code);
+      
       if (loginData && loginData.authToken) {
+        console.log('🔑 Initial login detected!');
+        console.log('   Has credentials:', !!loginData.credentials);
+        console.log('   Username:', loginData.credentials?.username || 'NOT CAPTURED');
+        
         if (loginCheckIntervalRef.current) {
           clearInterval(loginCheckIntervalRef.current);
           loginCheckIntervalRef.current = null;
         }
 
-        console.log("\n✅ Initial login detected");
-        console.log("👤 User:", loginData.userData.userEmail);
-        console.log("🌐 Subdomain:", loginData.userData.site.domain);
-        console.log("🔑 Credentials:", loginData.credentials ? "Captured" : "Not available");
+        // Store credentials immediately
+        if (loginData.credentials && loginData.credentials.username) {
+          capturedCredsRef.current = loginData.credentials;
+          console.log('✅ Credentials stored in ref');
+        }
 
         await handleInitialLogin(loginData);
       }
-    } catch {}
+    } catch (err) {
+      console.error('Error checking initial login:', err);
+    }
   };
 
   // ============================================================================
@@ -218,49 +257,86 @@ const App = () => {
   // ============================================================================
   const handleInitialLogin = async (loginData) => {
     try {
+      console.log('🔄 Processing initial login...');
       const { authToken, userData, credentials } = loginData;
       initialAuthTokenRef.current = authToken;
       userDataRef.current = userData;
       rawLoginDetailsRef.current = loginData.rawLoginDetails || null;
-      capturedCredsRef.current = credentials || capturedCredsRef.current;
+      
+      // Ensure credentials are stored
+      if (credentials && credentials.username) {
+        capturedCredsRef.current = credentials;
+        console.log('✅ Credentials confirmed:', credentials.username);
+      } else {
+        console.warn('⚠️ No credentials available for owner exchange');
+      }
 
       const webview = document.getElementById("main-webview");
-      if (webview) await webview.executeJavaScript(`localStorage.removeItem('token');`);
+      if (webview) {
+        await webview.executeJavaScript(`localStorage.removeItem('token');`);
+      }
 
-      // Keep normal app flow visible; probe owner token in a hidden webview
-      console.log("🔄 Exchanging token with owner API...\n");
       setAuthStage("owner_exchange");
+      
       try {
-        console.log("🔑 Using credentials:", capturedCredsRef.current ? "Yes" : "No");
-        const resp = await window.electronAPI?.ownerExchange?.exchange(authToken, userData.site, capturedCredsRef.current || undefined);
+        console.log('🔄 Attempting owner token exchange...');
+        console.log('   Has credentials:', !!capturedCredsRef.current);
+        console.log('   Username:', capturedCredsRef.current?.username || 'NONE');
+        
+        const resp = await window.electronAPI?.ownerExchange?.exchange(
+          authToken, 
+          userData.site, 
+          capturedCredsRef.current
+        );
+        
         if (resp?.success && resp.ownerAuthToken) {
-          console.log("✅ Owner token exchange successful!");
+          console.log('✅ Owner token obtained via API exchange!');
           await handleOwnerTokenReceived(resp.ownerAuthToken);
           return;
         }
-        console.warn("⚠️ Owner exchange failed, falling back to hidden probe:", resp?.error || 'unknown');
-        setAuthStage("owner_probe");
-        startHiddenOwnerProbe(userData.site);
+        
+        console.log('⚠️ API exchange failed, trying alternative methods...');
       } catch (e) {
-        console.warn("⚠️ Owner exchange error, falling back to hidden probe:", e?.message);
-        setAuthStage("owner_probe");
-        startHiddenOwnerProbe(userData.site);
+        console.error('❌ Owner exchange error:', e);
       }
+      
+      // Fallback: Navigate to owner domain
+      console.log('🔄 Navigating to owner domain for token extraction...');
+      setAuthStage("redirecting");
+      const targetUrl = userData.site.old_app_url || userData.site.app_url || userData.site.url;
+      setWebviewUrl(targetUrl);
+      
     } catch (err) {
-      console.error("❌ Error handling initial login:", err);
+      console.error('❌ handleInitialLogin error:', err);
     }
   };
 
   // ============================================================================
-  // STAGE 3: Extract owner token (FIXED)
+  // STAGE 3: Extract owner token
   // ============================================================================
   const checkForOwnerToken = async (webview) => {
+    if (retryCountRef.current >= maxRetriesRef.current) {
+      console.error('❌ Max retries reached for owner token extraction');
+      return;
+    }
+    
+    retryCountRef.current++;
+    console.log(`🔍 Checking for owner token (attempt ${retryCountRef.current}/${maxRetriesRef.current})...`);
+    
     try {
       const code = `
         (function() {
           function isJwt(t){
-            try{const p=t.split('.'); if(p.length!==3||!t.startsWith('eyJ')) return false; const pl=JSON.parse(atob(p[1])); return !!pl;}catch{return false}
+            try{
+              const p=t.split('.'); 
+              if(p.length!==3||!t.startsWith('eyJ')) return false; 
+              const pl=JSON.parse(atob(p[1])); 
+              return !!pl;
+            }catch{
+              return false;
+            }
           }
+          
           function pickValidOwnerToken(token){
             if(!token||!isJwt(token)) return null;
             try{
@@ -271,14 +347,14 @@ const App = () => {
             }catch{}
             return null;
           }
+          
           try {
-            const host = window.location.hostname;
-            const captured = window.__amditalCaptured || { reqs: [] };
-            // 1) Preferred: localStorage keys
             const localKeys = ['token','owner_token','amdital_owner_token','jwt','authToken','amdital_auth'];
+            
             for(const k of localKeys){
               const raw = localStorage.getItem(k);
               if(!raw) continue;
+              
               try{
                 const parsed = JSON.parse(raw);
                 const maybe = pickValidOwnerToken(parsed.authToken || parsed.token || parsed);
@@ -288,235 +364,26 @@ const App = () => {
                 if(maybe) return maybe;
               }
             }
-            // 1b) sessionStorage fallback
-            for(const k of localKeys){
-              try {
-                const raw = sessionStorage.getItem(k);
-                if(!raw) continue;
-                try{ const parsed = JSON.parse(raw); const maybe = pickValidOwnerToken(parsed.authToken || parsed.token || parsed); if(maybe) return maybe; }catch{ const maybe = pickValidOwnerToken(raw); if(maybe) return maybe; }
-              } catch {}
-            }
-            // 2) Cookies by name
-            const cookies = document.cookie ? document.cookie.split(';') : [];
-            for(const c of cookies){
-              const [name, valRaw] = c.split('=');
-              const nameTrim = (name||'').trim();
-              const val = decodeURIComponent((valRaw||'').trim());
-              if(['token','owner_token','amdital_owner_token','jwt','authToken','amdital_auth'].includes(nameTrim)){
-                const maybe = pickValidOwnerToken(val);
-                if(maybe) return maybe;
-              }
-            }
-            // 3) Any JWT-like value in cookies
-            for(const c of cookies){
-              const val = decodeURIComponent((c.split('=')[1]||'').trim());
-              if(isJwt(val)){
-                const maybe = pickValidOwnerToken(val);
-                if(maybe) return maybe;
-              }
-            }
-            return { host, captured }
-          } catch { return null; }
+            
+            return null;
+          } catch { 
+            return null; 
+          }
         })();
       `;
 
       const ownerData = await webview.executeJavaScript(code);
 
       if (ownerData && ownerData.authToken) {
-        console.log("✅ Owner token captured!");
-        console.log("📏 Length:", ownerData.authToken.length);
-        console.log("🌐 Issuer:", ownerData.issuer);
+        console.log('✅ Owner token found in localStorage!');
         await handleOwnerTokenReceived(ownerData.authToken);
-        // Clean up hidden webview if used
-        try {
-          if (hiddenOwnerWebviewRef.current && hiddenOwnerWebviewRef.current === webview) {
-            hiddenOwnerWebviewRef.current.remove();
-            hiddenOwnerWebviewRef.current = null;
-          }
-        } catch {}
       } else {
-        if (ownerData && ownerData.host) {
-          console.log("⏳ Owner token not ready, current host:", ownerData.host);
-          // For hidden probe, ensure it's on the correct owner domain
-          if (hiddenOwnerWebviewRef.current && webview === hiddenOwnerWebviewRef.current) {
-            const ownerDomain = userDataRef.current?.site?.domain;
-            if (ownerDomain && !ownerData.host.includes(ownerDomain)) {
-              const target = `https://${ownerDomain}`;
-              try { webview.loadURL?.(target); console.log("➡️ Hidden probe navigating:", target); } catch {}
-            }
-          }
-          // Fallback: ask main process to read HttpOnly cookies
-          if (hiddenOwnerWebviewRef.current && webview === hiddenOwnerWebviewRef.current) {
-            try {
-              const ownerDomain = userDataRef.current?.site?.domain;
-              if (ownerDomain && window.electronAPI?.ownerCookies?.getTokenFromCookies) {
-                const resp = await window.electronAPI.ownerCookies.getTokenFromCookies(ownerDomain, ['token','owner_token','amdital_owner_token']);
-                if (resp?.success && resp.token) {
-                  console.log("✅ Owner token captured from cookies (", resp.name, ")");
-                  await handleOwnerTokenReceived(resp.token);
-                  try { hiddenOwnerWebviewRef.current?.remove(); hiddenOwnerWebviewRef.current = null; } catch {}
-                  return;
-                }
-                // Also check latest captured token from Set-Cookie sniffer
-                if (window.electronAPI?.ownerCookies?.getLatestCapturedToken) {
-                  const latest = await window.electronAPI.ownerCookies.getLatestCapturedToken();
-                  if (latest?.token) {
-                    console.log("✅ Owner token captured via Set-Cookie sniffer (", latest.name || 'unknown', ")");
-                    await handleOwnerTokenReceived(latest.token);
-                    try { hiddenOwnerWebviewRef.current?.remove(); hiddenOwnerWebviewRef.current = null; } catch {}
-                    return;
-                  }
-                }
-                // Replay captured GraphQL/REST if present
-                if (ownerData?.captured?.reqs && ownerData.captured.reqs.length && window.electronAPI?.ownerReplay?.replay) {
-                  for (const r of ownerData.captured.reqs) {
-                    try {
-                      const url = r.url;
-                      const body = r.body;
-                      const headers = r.headers;
-                      const rep = await window.electronAPI.ownerReplay.replay(url, body, headers, initialAuthTokenRef.current);
-                      if (rep?.success && rep.ownerAuthToken) {
-                        console.log('✅ Owner token captured via replay');
-                        await handleOwnerTokenReceived(rep.ownerAuthToken);
-                        try { hiddenOwnerWebviewRef.current?.remove(); hiddenOwnerWebviewRef.current = null; } catch {}
-                        return;
-                      }
-                    } catch {}
-                  }
-                }
-              }
-            } catch {}
-          }
-        } else {
-          console.log("⏳ Owner token not found yet");
-        }
-        retryCountRef.current++;
-        if (retryCountRef.current < maxRetriesRef.current) {
-          console.log(`⏳ Waiting for owner token... (${retryCountRef.current}/${maxRetriesRef.current})`);
-          setTimeout(() => checkForOwnerToken(webview), 3000);
-        } else {
-          console.error("❌ Failed to capture owner token after retries");
-          alert("Authentication failed. Please logout and login again.");
-        }
+        console.log(`⏳ Owner token not found yet, retrying...`);
+        setTimeout(() => checkForOwnerToken(webview), 3000);
       }
     } catch (err) {
-      console.error("❌ Error checking owner token:", err);
-    }
-  };
-
-  // ==========================================================================
-  // Hidden owner probe: load owner domain off-screen, auto-generate token there
-  // ==========================================================================
-  const startHiddenOwnerProbe = (site) => {
-    try {
-      const domain = site?.domain;
-      const target = domain ? `https://${domain}` : (site?.old_app_url || site?.app_url || site?.url);
-      if (!target) return;
-
-      // Reuse or create hidden webview
-      let hv = hiddenOwnerWebviewRef.current;
-      if (!hv) {
-        hv = document.createElement('webview');
-        hv.setAttribute('partition', 'persist:main');
-        hv.setAttribute('allowpopups', 'true');
-        hv.setAttribute('webpreferences', 'contextIsolation=false, allowRunningInsecureContent=true, webSecurity=false');
-        hv.style.width = '0px';
-        hv.style.height = '0px';
-        hv.style.position = 'absolute';
-        hv.style.left = '-9999px';
-        document.body.appendChild(hv);
-        hiddenOwnerWebviewRef.current = hv;
-      }
-
-      const onReady = async () => {
-        retryCountRef.current = 0;
-        // Inject initial login details into owner origin to trigger auto-login flow
-        try {
-          // Intercept fetch and XHR to capture owner authToken from API responses
-          const interceptor = `(() => {
-            try {
-              const storeToken = (t) => {
-                if (!t) return;
-                try { localStorage.setItem('amdital_owner_token', JSON.stringify({ authToken: t })); } catch {}
-              };
-              const captureReq = (url, body, headers) => {
-                try {
-                  const caps = window.__amditalCaptured || { reqs: [] };
-                  caps.reqs.push({ url, body, headers });
-                  window.__amditalCaptured = caps;
-                } catch {}
-              };
-              // Wrap fetch
-              if (window.fetch && !window.__amditalFetchWrapped) {
-                const origFetch = window.fetch.bind(window);
-                window.fetch = async (...args) => {
-                  try {
-                    const [input, init] = args;
-                    let url = typeof input === 'string' ? input : (input?.url || '');
-                    let body = init?.body;
-                    let headers = init?.headers || {};
-                    try { if (typeof body !== 'string') body = body ? JSON.stringify(body) : undefined; } catch {}
-                    try { captureReq(url, body, headers); } catch {}
-                    const res = await origFetch(input, init);
-                    try {
-                      const clone = res.clone();
-                      const ct = clone.headers.get('content-type') || '';
-                      if (ct.includes('application/json')) {
-                        const data = await clone.json();
-                        const tk = data?.data?.login?.authToken;
-                        if (tk && typeof tk === 'string' && tk.split('.').length === 3) storeToken(tk);
-                      }
-                    } catch {}
-                    return res;
-                  } catch (e) {
-                    throw e;
-                  }
-                };
-                window.__amditalFetchWrapped = true;
-              }
-              // Wrap XHR
-              if (window.XMLHttpRequest && !window.__amditalXHRWrapped) {
-                const OrigXHR = window.XMLHttpRequest;
-                const jwtLike = (v) => typeof v === 'string' && v.split('.').length === 3;
-                window.XMLHttpRequest = function() {
-                  const xhr = new OrigXHR();
-                  const origOpen = xhr.open;
-                  xhr.open = function(method, url) { xhr.__am_url = url; return origOpen.apply(xhr, arguments); };
-                  const origSend = xhr.send;
-                  xhr.send = function(body) { try { captureReq(xhr.__am_url, body, {}); } catch {} return origSend.apply(xhr, arguments); };
-                  xhr.addEventListener('load', function() {
-                    try {
-                      const ct = xhr.getResponseHeader && xhr.getResponseHeader('content-type');
-                      if (ct && ct.includes('application/json') && xhr.responseText) {
-                        const data = JSON.parse(xhr.responseText);
-                        const tk = data?.data?.login?.authToken;
-                        if (jwtLike(tk)) storeToken(tk);
-                      }
-                    } catch {}
-                  });
-                  return xhr;
-                };
-                window.__amditalXHRWrapped = true;
-              }
-            } catch {}
-          })();`;
-          await hv.executeJavaScript(interceptor);
-          if (rawLoginDetailsRef.current) {
-            await hv.executeJavaScript(`localStorage.setItem('store_temp_login_details', ${JSON.stringify(JSON.stringify(rawLoginDetailsRef.current))});`);
-            console.log('📦 Injected store_temp_login_details into owner domain');
-          }
-        } catch {}
-        // Small delay to allow app scripts to process, then scan
-        setTimeout(async () => {
-          await checkForOwnerToken(hv);
-        }, 1500);
-      };
-      hv.addEventListener('dom-ready', onReady, { once: true });
-
-      try { hv.loadURL(target); } catch { hv.setAttribute('src', target); }
-      console.log('🕵️ Hidden owner probe started at:', target);
-    } catch (e) {
-      console.error('❌ Hidden owner probe failed to start:', e);
+      console.error('❌ Error checking owner token:', err);
+      setTimeout(() => checkForOwnerToken(webview), 3000);
     }
   };
 
@@ -525,7 +392,9 @@ const App = () => {
   // ============================================================================
   const handleOwnerTokenReceived = async (ownerToken) => {
     try {
+      console.log('💾 Saving owner token and starting screenshot capture...');
       ownerAuthTokenRef.current = ownerToken;
+      
       const authData = {
         ownerAuthToken: ownerToken,
         initialAuthToken: initialAuthTokenRef.current,
@@ -534,9 +403,9 @@ const App = () => {
       };
 
       localStorage.setItem("amdital_auth", JSON.stringify(authData));
-      console.log("✅ Token saved (" + ownerToken.length + " chars)");
 
       await new Promise((r) => setTimeout(r, 2000));
+      
       await window.electronAPI?.screenshots?.setToken({
         authToken: ownerToken,
         userData: userDataRef.current,
@@ -546,9 +415,10 @@ const App = () => {
       isCapturingRef.current = true;
       setIsAuthenticated(true);
       setAuthStage("ready");
-      console.log("🎉 Ready to capture!\n");
+      
+      console.log('✅ Screenshot capture started successfully!');
     } catch (err) {
-      console.error("❌ Error:", err);
+      console.error('❌ Error handling owner token:', err);
     }
   };
 
@@ -557,26 +427,31 @@ const App = () => {
   // ============================================================================
   const handleLogout = async () => {
     try {
-      console.log("\n🚪 Logging out...");
+      console.log('👋 Logging out...');
+      
       if (isCapturingRef.current) {
         await window.electronAPI?.screenshots?.stop();
         isCapturingRef.current = false;
       }
+      
       if (loginCheckIntervalRef.current) {
         clearInterval(loginCheckIntervalRef.current);
         loginCheckIntervalRef.current = null;
       }
+      
       initialAuthTokenRef.current = null;
       ownerAuthTokenRef.current = null;
       userDataRef.current = null;
+      capturedCredsRef.current = null;
       retryCountRef.current = 0;
+      
       localStorage.removeItem("amdital_auth");
+      
       setIsAuthenticated(false);
       setAuthStage("initial");
-      setWebviewUrl("https://app-amdital.dev.diginnovators.site/login");
-      console.log("✅ Logged out\n");
+      setWebviewUrl(LOGIN_URL);
     } catch (err) {
-      console.error("❌ Logout error:", err);
+      console.error('Error during logout:', err);
     }
   };
 
@@ -596,7 +471,7 @@ const App = () => {
   // ============================================================================
   // RENDER
   // ============================================================================
-  if (loading)
+  if (loading) {
     return (
       <div
         style={{
@@ -615,6 +490,7 @@ const App = () => {
         </div>
       </div>
     );
+  }
 
   return (
     <div style={{ width: "100vw", height: "100vh", overflow: "hidden" }}>
