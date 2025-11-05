@@ -40,4 +40,7 @@ yarn-error.log*
 
 
 
-.env*
+# Ignore all env files except .env.example
+.env
+.env.*
+!.env.example
