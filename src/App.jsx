@@ -1,88 +1,66 @@
-// src/App.jsx - PRODUCTION READY (Fixed Credential Capture)
+// src/App.jsx - CLEAN & SIMPLIFIED WITH AUTO-LOGIN
 import React, { useEffect, useRef, useState } from "react";
 import "./App.css";
 import TitleBar from "./components/TitleBar";
 
 const App = () => {
-  // Read from .env files - falls back to hardcoded URLs if not set
-  const LOGIN_URL = import.meta.env.VITE_LOGIN_URL || 
-    (import.meta?.env?.MODE === "production"
-      ? "https://app.amdital.com/login"
-      : "https://app-amdital.dev.diginnovators.site/login");
+  const LOGIN_URL = import.meta.env.VITE_LOGIN_URL || "https://app.amdital.com/login";
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [webviewUrl, setWebviewUrl] = useState("");
   const [loading, setLoading] = useState(true);
-  const [authStage, setAuthStage] = useState("initial");
+  const [authStage, setAuthStage] = useState("checking"); // checking, login, redirecting, owner_auth, ready
 
   const webviewRef = useRef(null);
-  const isCapturingRef = useRef(false);
   const initialAuthTokenRef = useRef(null);
-  const ownerAuthTokenRef = useRef(null);
   const userDataRef = useRef(null);
-  const rawLoginDetailsRef = useRef(null);
   const capturedCredsRef = useRef(null);
   const retryCountRef = useRef(0);
-  const maxRetriesRef = useRef(15);
   const loginCheckIntervalRef = useRef(null);
 
   // ============================================================================
-  // INITIALIZE
+  // STEP 1: Check for saved auth on startup
   // ============================================================================
   useEffect(() => {
-    const initializeApp = async () => {
-      console.log('🚀 Initializing app...');
-      const savedAuth = localStorage.getItem("amdital_auth");
-      if (savedAuth) {
-        try {
-          const authData = JSON.parse(savedAuth);
-          const { ownerAuthToken, userData } = authData;
-
-          const isValid =
-            ownerAuthToken &&
-            isTokenValid(ownerAuthToken) &&
-            ownerAuthToken.length >= 270;
-
-          if (isValid) {
-            console.log('✅ Found valid saved auth');
-            ownerAuthTokenRef.current = ownerAuthToken;
-            userDataRef.current = userData;
-
-            const site = userData.site;
-            const url = site.old_app_url || site.app_url || site.url;
-            setWebviewUrl(url);
-            setIsAuthenticated(true);
-            setAuthStage("ready");
-
-            await window.electronAPI?.screenshots?.setToken({
-              authToken: ownerAuthToken,
-              userData: userData,
-            });
-            await window.electronAPI?.screenshots?.start();
-            isCapturingRef.current = true;
-          } else {
-            console.log('⚠️ Invalid saved auth, clearing...');
-            localStorage.removeItem("amdital_auth");
-            setWebviewUrl(LOGIN_URL);
-          }
-        } catch (err) {
-          console.error('❌ Error reading saved auth:', err);
-          localStorage.removeItem("amdital_auth");
+    const checkSavedAuth = async () => {
+      console.log('🔍 Checking for saved authentication...');
+      
+      try {
+        const result = await window.electronAPI?.auth?.checkSavedAuth();
+        
+        if (result?.autoLogin && result?.authData) {
+          console.log('✅ Auto-login: Valid auth found');
+          
+          const { ownerAuthToken, userData } = result.authData;
+          const site = userData.site;
+          const targetUrl = site.old_app_url || site.app_url || site.url;
+          
+          setWebviewUrl(targetUrl);
+          setIsAuthenticated(true);
+          setAuthStage("ready");
+          
+          // Resume session
+          await window.electronAPI?.auth?.resumeSession(result.authData);
+          
+        } else {
+          console.log('ℹ️ No valid auth, showing login');
           setWebviewUrl(LOGIN_URL);
+          setAuthStage("login");
         }
-      } else {
-        console.log('ℹ️ No saved auth, showing login');
+      } catch (err) {
+        console.error('❌ Error checking auth:', err);
         setWebviewUrl(LOGIN_URL);
+        setAuthStage("login");
       }
-
+      
       setLoading(false);
     };
 
-    initializeApp();
+    checkSavedAuth();
   }, []);
 
   // ============================================================================
-  // WEBVIEW MONITORING
+  // STEP 2: Monitor webview for login events
   // ============================================================================
   useEffect(() => {
     if (!webviewUrl || loading) return;
@@ -90,44 +68,34 @@ const App = () => {
     if (!webview) return;
 
     const handleDomReady = async () => {
-      console.log('📄 Webview DOM ready, stage:', authStage);
-      
-      if (authStage === "initial" && !isAuthenticated) {
-        if (loginCheckIntervalRef.current)
-          clearInterval(loginCheckIntervalRef.current);
-
-        loginCheckIntervalRef.current = setInterval(async () => {
-          await checkForInitialLogin(webview);
-        }, 2000);
+      if (authStage === "login") {
+        // Start checking for login
+        if (loginCheckIntervalRef.current) clearInterval(loginCheckIntervalRef.current);
+        loginCheckIntervalRef.current = setInterval(() => checkForInitialLogin(webview), 2000);
       }
 
-      if (authStage === "redirecting" || authStage === "owner_auth") {
+      if (authStage === "owner_auth") {
         retryCountRef.current = 0;
-        setTimeout(() => checkForOwnerToken(webview), 6000);
+        setTimeout(() => checkForOwnerToken(webview), 3000);
       }
     };
 
     const handleNavigate = async (event) => {
-      console.log('🧭 Navigation:', event.url);
-      
-      if (event.url.includes("/login") || event.url.includes("/logout")) {
-        if (isAuthenticated) await handleLogout();
+      // Detect logout
+      if ((event.url.includes("/login") || event.url.includes("/logout")) && isAuthenticated) {
+        await handleLogout();
       }
 
-      if (
-        authStage === "redirecting" &&
-        (/.amdital\.dev\.diginnovators\.site/.test(event.url) || 
-         /\.amdital\.com/.test(event.url) || 
-         /api-amdital/.test(event.url))
-      ) {
-        console.log('✅ Owner domain detected, switching to owner_auth stage');
+      // Detect owner domain redirect
+      if (authStage === "redirecting" && 
+          (event.url.includes('.amdital.') || event.url.includes('diginnovators'))) {
+        console.log('✅ Owner domain detected');
         setAuthStage("owner_auth");
       }
     };
 
     const handleDidFinishLoad = async () => {
       if (authStage === "owner_auth") {
-        retryCountRef.current = 0;
         await checkForOwnerToken(webview);
       }
     };
@@ -142,43 +110,37 @@ const App = () => {
       webview.removeEventListener("did-finish-load", handleDidFinishLoad);
       if (loginCheckIntervalRef.current) {
         clearInterval(loginCheckIntervalRef.current);
-        loginCheckIntervalRef.current = null;
       }
     };
   }, [webviewUrl, loading, isAuthenticated, authStage]);
 
   // ============================================================================
-  // STAGE 1: Check for initial login - ENHANCED CREDENTIAL CAPTURE
+  // STEP 3: Check for initial login and capture credentials
   // ============================================================================
   const checkForInitialLogin = async (webview) => {
     try {
       const code = `
         (function() {
           try {
-            // Try to get credentials from form inputs FIRST
-            let capturedCreds = null;
-            const forms = document.querySelectorAll('form');
-            
-            for (const form of forms) {
-              const emailInput = form.querySelector('input[type="email"], input[name="username"], input[name="email"], input[name="log"]');
-              const passwordInput = form.querySelector('input[type="password"], input[name="password"], input[name="pwd"]');
-              
-              if (emailInput && passwordInput) {
-                const emailValue = emailInput.value || emailInput.defaultValue || '';
-                const passwordValue = passwordInput.value || passwordInput.defaultValue || '';
+            // Capture credentials from form submission
+            if (!window.__credsCaptured) {
+              window.__credsCaptured = false;
+              document.addEventListener('submit', function(e) {
+                const form = e.target;
+                const emailInput = form.querySelector('input[type="email"], input[name="username"]');
+                const passwordInput = form.querySelector('input[type="password"]');
                 
-                if (emailValue && passwordValue) {
-                  capturedCreds = {
-                    username: emailValue.trim(),
-                    password: passwordValue
+                if (emailInput && passwordInput) {
+                  window.__lastCredentials = {
+                    username: emailInput.value,
+                    password: passwordInput.value
                   };
-                  console.log('✅ Credentials captured from form');
-                  break;
+                  window.__credsCaptured = true;
                 }
-              }
+              }, true);
             }
             
-            // Now check for login token
+            // Check for login token
             const loginDetails = localStorage.getItem('store_temp_login_details');
             if (!loginDetails) return null;
             
@@ -186,22 +148,13 @@ const App = () => {
             const authToken = loginData?.data?.login?.authToken;
             const user = loginData?.data?.login?.user;
             
-            // Try to get credentials from localStorage if not captured from form
-            if (!capturedCreds && loginData?.data?.login?.credentials) {
-              capturedCreds = loginData.data.login.credentials;
-              console.log('✅ Credentials found in localStorage');
-            }
+            if (!authToken || !user || !user.sites?.length) return null;
             
-            if (!authToken || !user) return null;
-            
-            const sites = user.sites || [];
-            if (sites.length === 0) return null;
-            
-            const firstSite = sites[0];
+            const firstSite = user.sites[0];
             
             return {
-              authToken: authToken,
-              rawLoginDetails: loginDetails,
+              authToken,
+              credentials: window.__lastCredentials || null,
               userData: {
                 userId: user.userId,
                 userName: user.name,
@@ -217,11 +170,9 @@ const App = () => {
                   old_api_url: firstSite.old_api_url,
                   amdital_api_key: firstSite.amdital_api_key
                 }
-              },
-              credentials: capturedCreds
+              }
             };
-          } catch (e) { 
-            console.error('Error in checkForInitialLogin:', e);
+          } catch { 
             return null; 
           }
         })();
@@ -229,156 +180,103 @@ const App = () => {
 
       const loginData = await webview.executeJavaScript(code);
       
-      if (loginData && loginData.authToken) {
-        console.log('🔑 Initial login detected!');
-        console.log('   Has credentials:', !!loginData.credentials);
-        console.log('   Username:', loginData.credentials?.username || 'NOT CAPTURED');
+      if (loginData?.authToken) {
+        console.log('🔑 Login detected!');
         
         if (loginCheckIntervalRef.current) {
           clearInterval(loginCheckIntervalRef.current);
           loginCheckIntervalRef.current = null;
         }
 
-        // Store credentials immediately
-        if (loginData.credentials && loginData.credentials.username) {
-          capturedCredsRef.current = loginData.credentials;
-          console.log('✅ Credentials stored in ref');
-        }
+        initialAuthTokenRef.current = loginData.authToken;
+        userDataRef.current = loginData.userData;
+        capturedCredsRef.current = loginData.credentials;
 
         await handleInitialLogin(loginData);
       }
     } catch (err) {
-      console.error('Error checking initial login:', err);
+      console.error('Error checking login:', err);
     }
   };
 
   // ============================================================================
-  // STAGE 2: Handle initial login and redirect
+  // STEP 4: Exchange initial token for owner token
   // ============================================================================
   const handleInitialLogin = async (loginData) => {
     try {
-      console.log('🔄 Processing initial login...');
       const { authToken, userData, credentials } = loginData;
-      initialAuthTokenRef.current = authToken;
-      userDataRef.current = userData;
-      rawLoginDetailsRef.current = loginData.rawLoginDetails || null;
       
-      // Ensure credentials are stored
-      if (credentials && credentials.username) {
-        capturedCredsRef.current = credentials;
-        console.log('✅ Credentials confirmed:', credentials.username);
-      } else {
-        console.warn('⚠️ No credentials available for owner exchange');
-      }
-
-      const webview = document.getElementById("main-webview");
-      if (webview) {
-        await webview.executeJavaScript(`localStorage.removeItem('token');`);
-      }
-
       setAuthStage("owner_exchange");
       
-      try {
-        console.log('🔄 Attempting owner token exchange...');
-        console.log('   Has credentials:', !!capturedCredsRef.current);
-        console.log('   Username:', capturedCredsRef.current?.username || 'NONE');
-        
+      // Try to exchange for owner token
+      if (credentials?.username) {
         const resp = await window.electronAPI?.ownerExchange?.exchange(
           authToken, 
           userData.site, 
-          capturedCredsRef.current
+          credentials
         );
         
         if (resp?.success && resp.ownerAuthToken) {
-          console.log('✅ Owner token obtained via API exchange!');
+          console.log('✅ Owner token obtained!');
           await handleOwnerTokenReceived(resp.ownerAuthToken);
           return;
         }
-        
-        console.log('⚠️ API exchange failed, trying alternative methods...');
-      } catch (e) {
-        console.error('❌ Owner exchange error:', e);
       }
       
       // Fallback: Navigate to owner domain
-      console.log('🔄 Navigating to owner domain for token extraction...');
+      console.log('🔄 Navigating to owner domain...');
       setAuthStage("redirecting");
       const targetUrl = userData.site.old_app_url || userData.site.app_url || userData.site.url;
       setWebviewUrl(targetUrl);
       
     } catch (err) {
-      console.error('❌ handleInitialLogin error:', err);
+      console.error('❌ Error in handleInitialLogin:', err);
     }
   };
 
   // ============================================================================
-  // STAGE 3: Extract owner token
+  // STEP 5: Extract owner token from localStorage
   // ============================================================================
   const checkForOwnerToken = async (webview) => {
-    if (retryCountRef.current >= maxRetriesRef.current) {
-      console.error('❌ Max retries reached for owner token extraction');
+    if (retryCountRef.current >= 10) {
+      console.error('❌ Max retries reached');
       return;
     }
     
     retryCountRef.current++;
-    console.log(`🔍 Checking for owner token (attempt ${retryCountRef.current}/${maxRetriesRef.current})...`);
+    console.log(`🔍 Checking for owner token (${retryCountRef.current}/10)...`);
     
     try {
       const code = `
         (function() {
-          function isJwt(t){
+          const keys = ['token','owner_token','amdital_owner_token','jwt','authToken'];
+          
+          for(const k of keys){
+            const raw = localStorage.getItem(k);
+            if(!raw) continue;
+            
             try{
-              const p=t.split('.'); 
-              if(p.length!==3||!t.startsWith('eyJ')) return false; 
-              const pl=JSON.parse(atob(p[1])); 
-              return !!pl;
+              const parsed = JSON.parse(raw);
+              const token = parsed.authToken || parsed.token || parsed;
+              if(typeof token === 'string' && token.split('.').length === 3) {
+                return { authToken: token };
+              }
             }catch{
-              return false;
-            }
-          }
-          
-          function pickValidOwnerToken(token){
-            if(!token||!isJwt(token)) return null;
-            try{
-              const issuer = JSON.parse(atob(token.split('.')[1])).iss || '';
-              if(issuer && issuer.includes(window.location.hostname)){
-                return { authToken: token, issuer };
-              }
-            }catch{}
-            return null;
-          }
-          
-          try {
-            const localKeys = ['token','owner_token','amdital_owner_token','jwt','authToken','amdital_auth'];
-            
-            for(const k of localKeys){
-              const raw = localStorage.getItem(k);
-              if(!raw) continue;
-              
-              try{
-                const parsed = JSON.parse(raw);
-                const maybe = pickValidOwnerToken(parsed.authToken || parsed.token || parsed);
-                if(maybe) return maybe;
-              }catch{
-                const maybe = pickValidOwnerToken(raw);
-                if(maybe) return maybe;
+              if(typeof raw === 'string' && raw.split('.').length === 3) {
+                return { authToken: raw };
               }
             }
-            
-            return null;
-          } catch { 
-            return null; 
           }
+          return null;
         })();
       `;
 
       const ownerData = await webview.executeJavaScript(code);
 
-      if (ownerData && ownerData.authToken) {
-        console.log('✅ Owner token found in localStorage!');
+      if (ownerData?.authToken) {
+        console.log('✅ Owner token found!');
         await handleOwnerTokenReceived(ownerData.authToken);
       } else {
-        console.log(`⏳ Owner token not found yet, retrying...`);
         setTimeout(() => checkForOwnerToken(webview), 3000);
       }
     } catch (err) {
@@ -388,51 +286,38 @@ const App = () => {
   };
 
   // ============================================================================
-  // STAGE 4: Save token and start capture
+  // STEP 6: Save owner token and complete authentication
   // ============================================================================
   const handleOwnerTokenReceived = async (ownerToken) => {
     try {
-      console.log('💾 Saving owner token and starting screenshot capture...');
-      ownerAuthTokenRef.current = ownerToken;
+      console.log('💾 Saving authentication...');
       
       const authData = {
         ownerAuthToken: ownerToken,
-        initialAuthToken: initialAuthTokenRef.current,
-        userData: userDataRef.current,
-        savedAt: new Date().toISOString(),
+        userData: userDataRef.current
       };
 
-      localStorage.setItem("amdital_auth", JSON.stringify(authData));
-
-      await new Promise((r) => setTimeout(r, 2000));
+      // Save to secure storage
+      const saveResult = await window.electronAPI?.auth?.saveAuthData(authData);
       
-      await window.electronAPI?.screenshots?.setToken({
-        authToken: ownerToken,
-        userData: userDataRef.current,
-      });
-
-      await window.electronAPI?.screenshots?.start();
-      isCapturingRef.current = true;
-      setIsAuthenticated(true);
-      setAuthStage("ready");
-      
-      console.log('✅ Screenshot capture started successfully!');
+      if (saveResult?.success) {
+        setIsAuthenticated(true);
+        setAuthStage("ready");
+        console.log('✅ Authentication complete!');
+      }
     } catch (err) {
-      console.error('❌ Error handling owner token:', err);
+      console.error('❌ Error saving owner token:', err);
     }
   };
 
   // ============================================================================
-  // LOGOUT
+  // STEP 7: Handle logout
   // ============================================================================
   const handleLogout = async () => {
     try {
       console.log('👋 Logging out...');
       
-      if (isCapturingRef.current) {
-        await window.electronAPI?.screenshots?.stop();
-        isCapturingRef.current = false;
-      }
+      await window.electronAPI?.auth?.logout();
       
       if (loginCheckIntervalRef.current) {
         clearInterval(loginCheckIntervalRef.current);
@@ -440,31 +325,17 @@ const App = () => {
       }
       
       initialAuthTokenRef.current = null;
-      ownerAuthTokenRef.current = null;
       userDataRef.current = null;
       capturedCredsRef.current = null;
       retryCountRef.current = 0;
       
-      localStorage.removeItem("amdital_auth");
-      
       setIsAuthenticated(false);
-      setAuthStage("initial");
+      setAuthStage("login");
       setWebviewUrl(LOGIN_URL);
+      
+      console.log('✅ Logged out successfully');
     } catch (err) {
       console.error('Error during logout:', err);
-    }
-  };
-
-  // ============================================================================
-  // HELPER
-  // ============================================================================
-  const isTokenValid = (token) => {
-    try {
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      const exp = payload.exp * 1000;
-      return Date.now() < exp;
-    } catch {
-      return false;
     }
   };
 
@@ -473,17 +344,15 @@ const App = () => {
   // ============================================================================
   if (loading) {
     return (
-      <div
-        style={{
-          width: "100vw",
-          height: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "#1a1a1a",
-          color: "#fff",
-        }}
-      >
+      <div style={{
+        width: "100vw",
+        height: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#1a1a1a",
+        color: "#fff"
+      }}>
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: "24px", marginBottom: "10px" }}>⏳</div>
           <div>Loading Amdital...</div>
@@ -495,22 +364,20 @@ const App = () => {
   return (
     <div style={{ width: "100vw", height: "100vh", overflow: "hidden" }}>
       <TitleBar />
-      <div
-        style={{
-          position: "absolute",
-          top: "var(--titlebar-height, 40px)",
-          left: 0,
-          right: 0,
-          bottom: 0,
-        }}
-      >
+      <div style={{
+        position: "absolute",
+        top: "var(--titlebar-height, 40px)",
+        left: 0,
+        right: 0,
+        bottom: 0
+      }}>
         {webviewUrl && (
           <webview
             id="main-webview"
             ref={webviewRef}
             src={webviewUrl}
             style={{ width: "100%", height: "100%", border: "none" }}
-            webpreferences="contextIsolation=false, allowRunningInsecureContent=true, webSecurity=false"
+            webpreferences="contextIsolation=false"
             allowpopups="true"
             partition="persist:main"
           />
