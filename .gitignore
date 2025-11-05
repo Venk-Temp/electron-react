@@ -40,7 +40,10 @@ yarn-error.log*
 
 
 
-# Ignore all env files except .env.example
+# Ignore ONLY actual .env file if someone creates it
 .env
-.env.*
+
+# DO NOT ignore .env.development or .env.production or .env.example
+!.env.development
+!.env.production
 !.env.example
