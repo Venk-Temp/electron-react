@@ -1,11 +1,8 @@
-// preload.cjs - PRODUCTION READY
+// electron/preload.cjs - WITH AUTH APIS
 const { contextBridge, ipcRenderer } = require('electron');
 
-console.log('✅ preload.cjs loaded');
-
 contextBridge.exposeInMainWorld('electronAPI', {
-  // Window control APIs
-  trayClick: () => ipcRenderer?.send('tray-clicked'),
+  // Window control
   minimize: () => ipcRenderer?.send('window-minimize'),
   maximize: () => ipcRenderer?.send('window-maximize'),
   close: () => ipcRenderer?.send('window-close'),
@@ -17,42 +14,31 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('window-is-maximized', listener);
   },
 
+  // Authentication APIs (NEW)
+  auth: {
+    checkSavedAuth: () => ipcRenderer?.invoke('check-saved-auth'),
+    saveAuthData: (authData) => ipcRenderer?.invoke('save-auth-data', authData),
+    logout: () => ipcRenderer?.invoke('logout'),
+    resumeSession: (authData) => ipcRenderer?.invoke('resume-session', authData)
+  },
+
   // Screenshot APIs
   screenshots: {
-    // Get all screenshot metadata
     getMetadata: () => ipcRenderer?.invoke('get-screenshot-metadata'),
-    
-    // Get screenshot file as base64
-    getFile: (filename) => ipcRenderer?.invoke('get-screenshot-file', filename),
-    
-    // Start screenshot capture
-    start: () => ipcRenderer?.invoke('start-screenshot-capture'),
-    
-    // Stop screenshot capture
-    stop: () => ipcRenderer?.invoke('stop-screenshot-capture'),
-    
-    // Set authentication token and user data
-    setToken: (tokenData) => ipcRenderer?.invoke('set-screenshot-token', tokenData),
-    
-    // Get capture status
-    getStatus: () => ipcRenderer?.invoke('get-screenshot-status')
+    getFile: (filename) => ipcRenderer?.invoke('get-screenshot-file', filename)
   },
 
-  
-
-  // Owner cookie token fallback
-  ownerCookies: {
-    getTokenFromCookies: (domain, names) => ipcRenderer?.invoke('get-owner-token-from-cookies', { domain, names }),
-    getLatestCapturedToken: () => ipcRenderer?.invoke('get-latest-owner-cookie-token')
-  },
+  // Owner token exchange
   ownerExchange: {
-    exchange: (initialToken, site, credentials) => ipcRenderer?.invoke('exchange-owner-token', { initialToken, site, credentials })
+    exchange: (initialToken, site, credentials) => 
+      ipcRenderer?.invoke('exchange-owner-token', { initialToken, site, credentials })
   },
-  ownerReplay: {
-    replay: (url, body, headers, initialToken) => ipcRenderer?.invoke('replay-owner-graphql', { url, body, headers, initialToken })
+
+  // Owner cookie fallback
+  ownerCookies: {
+    getTokenFromCookies: (domain, names) => 
+      ipcRenderer?.invoke('get-owner-token-from-cookies', { domain, names }),
+    getLatestCapturedToken: () => 
+      ipcRenderer?.invoke('get-latest-owner-cookie-token')
   }
 });
-
-
-
-  

@@ -25,6 +25,7 @@
     "rebuild": "npm run clean && npm install && npm run build && npm run dist:all"
   },
   "dependencies": {
+    "electron-store": "^11.0.2",
     "form-data": "^4.0.1",
     "fs-extra": "^11.3.2",
     "lucide-react": "^0.544.0",
@@ -73,17 +74,23 @@
       "!**/{appveyor.yml,.travis.yml,circle.yml}",
       "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
     ],
-    "asarUnpack": ["node_modules/screenshot-desktop/**/*"],
+    "asarUnpack": [
+      "node_modules/screenshot-desktop/**/*"
+    ],
     "extraResources": [
       {
         "from": "public/icons",
         "to": "assets/icons",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": "public/splash",
         "to": "assets/splash",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "mac": {
@@ -100,15 +107,24 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         },
         {
           "target": "zip",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         },
         {
           "target": "mas",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ]
     },
@@ -116,16 +132,37 @@
       "icon": "public/icons/logo.icns",
       "iconSize": 100,
       "contents": [
-        { "x": 150, "y": 200 },
-        { "x": 450, "y": 200, "type": "link", "path": "/Applications" }
+        {
+          "x": 150,
+          "y": 200
+        },
+        {
+          "x": 450,
+          "y": 200,
+          "type": "link",
+          "path": "/Applications"
+        }
       ],
-      "window": { "width": 600, "height": 450 },
+      "window": {
+        "width": 600,
+        "height": 450
+      },
       "title": "Install ${productName}"
     },
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "public/icons/logo.ico",
       "requestedExecutionLevel": "asInvoker",
@@ -151,9 +188,24 @@
     },
     "linux": {
       "target": [
-        { "target": "AppImage", "arch": ["x64"] },
-        { "target": "deb", "arch": ["x64"] },
-        { "target": "rpm", "arch": ["x64"] }
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "rpm",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "public/icons/logo.png",
       "category": "Office",
